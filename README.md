@@ -4,13 +4,13 @@ Aplicação Full Stack desenvolvida para a disciplina de **Programação Web Ful
 
 O sistema permite que os usuários registrem suas movimentações financeiras, organizem receitas e despesas, acompanhem seus gastos e visualizem relatórios para auxiliar no controle do dinheiro.
 
-## 📌 Sobre o projeto
+##  Sobre o projeto
 
 O projeto consiste em uma aplicação web com interface desenvolvida em React.js e uma API REST criada com Node.js e Express, conectada a um banco de dados para armazenar as informações dos usuários.
 
 A aplicação foi desenvolvida com foco na organização financeira, segurança dos dados e facilidade de utilização.
 
-## ✨ Funcionalidades
+##  Funcionalidades
 
 - Cadastro de usuários e autenticação com JWT.
 - Login e logout.
@@ -26,7 +26,7 @@ A aplicação foi desenvolvida com foco na organização financeira, segurança 
 - Controle de saldo, receitas e despesas.
 - Isolamento dos dados de cada usuário.
 
-## 🛠️ Tecnologias utilizadas
+##  Tecnologias utilizadas
 
 ### Front-end
 - React.js
@@ -46,7 +46,7 @@ A aplicação foi desenvolvida com foco na organização financeira, segurança 
 ### Banco de dados
 - Banco de dados relacional ou não relacional com persistência real.
 
-## 📂 Estrutura do projeto
+##  Estrutura do projeto
 
 ```text
 projeto2-financas/
@@ -71,7 +71,7 @@ projeto2-financas/
 └── README.md
 ```
 
-## 🚀 Como executar o projeto
+##  Como executar o projeto
 
 ### Pré-requisitos
 
@@ -132,7 +132,7 @@ A aplicação estará disponível no endereço informado pelo Vite, geralmente:
 http://localhost:5173
 ```
 
-## 🔐 Segurança
+##  Segurança
 
 O sistema utiliza autenticação por token JWT para proteger as rotas privadas.
 
@@ -140,7 +140,7 @@ As senhas são armazenadas utilizando hash, e cada usuário pode acessar somente
 
 As informações sensíveis, como credenciais do banco de dados e chave JWT, são armazenadas em variáveis de ambiente.
 
-## 📡 Principais rotas da API
+##  Principais rotas da API
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -160,15 +160,17 @@ As informações sensíveis, como credenciais do banco de dados e chave JWT, sã
 
 *As rotas podem variar conforme a implementação final do projeto.*
 
-## 👩‍💻 Desenvolvido por
-| Ana Beatriz Barreto |
-| João Miguel Dias |
-| Lívia Pontes |
-|Projeto acadêmico desenvolvido em grupo para a disciplina de Programação Web Full Stack.|
+## Desenvolvido por
+
+- Ana Beatriz Barreto
+- João Miguel Dias
+- Lívia Pontes
+
+Projeto acadêmico desenvolvido em grupo para a disciplina de Programação Web Full Stack.
 
 **Universidade Tecnológica Federal do Paraná (UTFPR)**
 
-## 🎓 Objetivo acadêmico
+##  Objetivo acadêmico
 
 Aplicar conhecimentos de desenvolvimento Full Stack, integração entre front-end e back-end, criação de APIs REST, persistência de dados, autenticação, segurança e organização de aplicações web.
 

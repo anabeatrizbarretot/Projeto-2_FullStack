@@ -161,10 +161,10 @@ As informações sensíveis, como credenciais do banco de dados e chave JWT, sã
 *As rotas podem variar conforme a implementação final do projeto.*
 
 ## 👩‍💻 Desenvolvido por
-Ana Beatriz Barreto
-João Miguel Dias
-Lívia Pontes 
-Projeto acadêmico desenvolvido em grupo para a disciplina de Programação Web Full Stack.
+| Ana Beatriz Barreto |
+| João Miguel Dias |
+| Lívia Pontes |
+|Projeto acadêmico desenvolvido em grupo para a disciplina de Programação Web Full Stack.|
 
 **Universidade Tecnológica Federal do Paraná (UTFPR)**
 

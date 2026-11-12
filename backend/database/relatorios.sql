@@ -135,3 +135,42 @@ FROM classificacao
 WHERE numero_fatura <= 4
 
 ORDER BY cartao, vencimento;
+
+
+-- =============================================
+-- RELATORIO 4: SAUDE FINANCEIRA
+-- =============================================
+
+WITH resumo AS (
+    SELECT
+        COALESCE(
+            SUM(valor) FILTER (WHERE tipo = 'entrada'),
+            0
+        ) AS total_entradas,
+
+        COALESCE(
+            SUM(valor) FILTER (WHERE tipo = 'saida'),
+            0
+        ) AS total_despesas
+
+    FROM lancamentos
+
+    WHERE usuario_id = $1
+      AND data BETWEEN $2 AND $3
+)
+
+SELECT
+    total_entradas,
+    total_despesas,
+    total_entradas - total_despesas AS saldo,
+
+    ROUND(
+        CASE
+            WHEN total_entradas > 0
+            THEN (total_despesas / total_entradas) * 100
+            ELSE 0
+        END,
+        2
+    ) AS percentual_renda_comprometida
+
+FROM resumo;

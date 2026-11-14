@@ -2,13 +2,17 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import pool from '../config/database.js';
-import autenticar from '../middlewares/auth.middleware.js';
 import { rateLimit } from 'express-rate-limit';
 
+import autenticar from '../middlewares/auth.middleware.js';
+
+import {
+  cadastrarUsuario,
+  buscarUsuarioPorEmail,
+  buscarUsuarioPorId
+} from '../models/auth.model.js';
 
 const router = express.Router();
-
 
 const limitarLogin = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -20,7 +24,6 @@ const limitarLogin = rateLimit({
     message: 'Muitas tentativas de login. Tente novamente em 15 minutos.'
   }
 });
-
 
 function validarCPF(cpf) {
   const numeros = cpf.replace(/\D/g, '');
@@ -49,19 +52,9 @@ function validarCPF(cpf) {
   );
 }
 
-const categoriasPadrao = [
-  ['Salário', 'entrada'],
-  ['Outros', 'entrada'],
-  ['Alimentação', 'saida'],
-  ['Moradia', 'saida'],
-  ['Saúde', 'saida'],
-  ['Mobilidade', 'saida'],
-  ['Lazer', 'saida'],
-  ['Educação', 'saida'],
-  ['Outros', 'saida']
-];
+// CADASTRO
 
-router.post('/cadastro', async (req, res) => {
+router.post('/cadastro', async (req, res, next) => {
   const {
     nome,
     email,
@@ -103,14 +96,18 @@ router.post('/cadastro', async (req, res) => {
   ) {
     return res.status(400).json({
       message: 'E-mail inválido.',
-      campos: { email: 'Informe um e-mail válido.' }
+      campos: {
+        email: 'Informe um e-mail válido.'
+      }
     });
   }
 
   if (!validarCPF(cpfLimpo)) {
     return res.status(400).json({
       message: 'CPF inválido.',
-      campos: { cpf: 'Informe um CPF válido.' }
+      campos: {
+        cpf: 'Informe um CPF válido.'
+      }
     });
   }
 
@@ -134,41 +131,15 @@ router.post('/cadastro', async (req, res) => {
     });
   }
 
-  let client;
-
   try {
     const senhaHash = await bcrypt.hash(senha, 12);
 
-    client = await pool.connect();
-    await client.query('BEGIN');
-
-    const resultado = await client.query(
-      `INSERT INTO usuarios
-       (nome, email, cpf, senha_hash)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, nome, email, cpf, criado_em`,
-      [nomeLimpo, emailLimpo, cpfLimpo, senhaHash]
-    );
-
-    const usuario = resultado.rows[0];
-
-    for (const [nomeCategoria, tipoCategoria] of categoriasPadrao) {
-      await client.query(
-        `INSERT INTO categorias
-         (usuario_id, nome, tipo)
-         VALUES ($1, $2, $3)`,
-        [usuario.id, nomeCategoria, tipoCategoria]
-      );
-    }
-
-    await client.query(
-      `INSERT INTO fontes_destinos
-       (usuario_id, nome, tipo)
-       VALUES ($1, $2, $3)`,
-      [usuario.id, 'Conta corrente', 'conta']
-    );
-
-    await client.query('COMMIT');
+    const usuario = await cadastrarUsuario({
+      nome: nomeLimpo,
+      email: emailLimpo,
+      cpf: cpfLimpo,
+      senhaHash
+    });
 
     return res.status(201).json({
       message: 'Usuário cadastrado com sucesso!',
@@ -176,10 +147,6 @@ router.post('/cadastro', async (req, res) => {
     });
 
   } catch (erro) {
-    if (client) {
-      await client.query('ROLLBACK').catch(() => {});
-    }
-
     if (erro.code === '23505') {
       const campo = erro.constraint?.includes('cpf')
         ? 'cpf'
@@ -191,24 +158,19 @@ router.post('/cadastro', async (req, res) => {
 
       return res.status(409).json({
         message: mensagem,
-        campos: { [campo]: mensagem }
+        campos: {
+          [campo]: mensagem
+        }
       });
     }
 
-    console.error('Erro ao cadastrar usuário:', erro);
-
-    return res.status(500).json({
-      message: 'Erro interno ao cadastrar usuário.'
-    });
-
-  } finally {
-    if (client) {
-      client.release();
-    }
+    next(erro);
   }
 });
 
-router.post('/login', limitarLogin, async (req, res) => {
+// LOGIN
+
+router.post('/login', limitarLogin, async (req, res, next) => {
   const { email, senha } = req.body || {};
 
   if (
@@ -223,14 +185,9 @@ router.post('/login', limitarLogin, async (req, res) => {
   }
 
   try {
-    const resultado = await pool.query(
-      `SELECT id, nome, email, senha_hash
-       FROM usuarios
-       WHERE email = $1`,
-      [email.trim().toLowerCase()]
+    const usuario = await buscarUsuarioPorEmail(
+      email.trim().toLowerCase()
     );
-
-    const usuario = resultado.rows[0];
 
     if (!usuario) {
       return res.status(401).json({
@@ -256,7 +213,10 @@ router.post('/login', limitarLogin, async (req, res) => {
     const token = jwt.sign(
       { id: usuario.id },
       process.env.JWT_SECRET,
-      { expiresIn: '2h', algorithm: 'HS256' }
+      {
+        expiresIn: '2h',
+        algorithm: 'HS256'
+      }
     );
 
     return res.status(200).json({
@@ -270,39 +230,32 @@ router.post('/login', limitarLogin, async (req, res) => {
     });
 
   } catch (erro) {
-    console.error('Erro ao realizar login:', erro);
-
-    return res.status(500).json({
-      message: 'Erro interno ao realizar login.'
-    });
+    next(erro);
   }
 });
 
-router.get('/me', autenticar, async (req, res) => {
+// DADOS DO USUÁRIO AUTENTICADO
+
+router.get('/me', autenticar, async (req, res, next) => {
   try {
-    const resultado = await pool.query(
-      `SELECT id, nome, email, cpf, criado_em
-       FROM usuarios
-       WHERE id = $1`,
-      [req.usuario.id]
+    const usuario = await buscarUsuarioPorId(
+      req.usuario.id
     );
 
-    if (!resultado.rows.length) {
+    if (!usuario) {
       return res.status(404).json({
         message: 'Usuário não encontrado.'
       });
     }
 
-    return res.status(200).json(resultado.rows[0]);
+    return res.status(200).json(usuario);
 
   } catch (erro) {
-    console.error('Erro ao consultar usuário:', erro);
-
-    return res.status(500).json({
-      message: 'Erro interno ao consultar usuário.'
-    });
+    next(erro);
   }
 });
+
+// VERIFICAÇÃO DE ACESSO
 
 router.get('/perfil', autenticar, (req, res) => {
   return res.status(200).json({

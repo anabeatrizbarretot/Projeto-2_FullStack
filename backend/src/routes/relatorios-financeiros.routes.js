@@ -1,7 +1,11 @@
 
 import express from 'express';
-import pool from '../config/database.js';
 import autenticar from '../middlewares/auth.middleware.js';
+
+import {
+  consultarCategoriasPorPeriodo,
+  consultarFontesDestinosPorPeriodo
+} from '../models/relatorios-financeiros.model.js';
 
 const router = express.Router();
 
@@ -51,7 +55,7 @@ function obterPeriodo(req) {
     (dataF - dataI) / 86400000
   ) + 1;
 
-  const formatar = (ms) =>
+  const formatar = ms =>
     new Date(ms).toISOString().slice(0, 10);
 
   const anteriorInicio = formatar(
@@ -77,7 +81,9 @@ function obterPeriodo(req) {
   };
 }
 
-router.get('/categorias', async (req, res) => {
+// RELATÓRIO POR CATEGORIAS
+
+router.get('/categorias', async (req, res, next) => {
   const periodo = obterPeriodo(req);
 
   if (!periodo) {
@@ -87,42 +93,12 @@ router.get('/categorias', async (req, res) => {
   }
 
   try {
-    const consulta = await pool.query(
-      `SELECT
-         c.id,
-         c.nome,
-         c.tipo,
-         COALESCE(
-           SUM(l.valor) FILTER (
-             WHERE l.data BETWEEN $2::date AND $3::date
-           ), 0
-         ) AS total,
-         COALESCE(
-           SUM(l.valor) FILTER (
-             WHERE l.data BETWEEN $4::date AND $5::date
-           ), 0
-         ) AS "periodoAnterior"
-       FROM categorias c
-       LEFT JOIN lancamentos l
-         ON l.categoria_id = c.id
-         AND l.usuario_id = $1
-         AND l.data BETWEEN $4::date AND $3::date
-       WHERE c.usuario_id = $1
-       GROUP BY c.id, c.nome, c.tipo
-       HAVING COUNT(l.id) FILTER (
-         WHERE l.data BETWEEN $2::date AND $3::date
-       ) > 0
-       ORDER BY total DESC, c.nome ASC`,
-      [
-        req.usuario.id,
-        periodo.inicio,
-        periodo.fim,
-        periodo.anteriorInicio,
-        periodo.anteriorFim
-      ]
+    const dados = await consultarCategoriasPorPeriodo(
+      req.usuario.id,
+      periodo
     );
 
-    const linhas = consulta.rows.map(item => ({
+    const linhas = dados.map(item => ({
       id: item.id,
       nome: item.nome,
       tipo: item.tipo,
@@ -131,25 +107,33 @@ router.get('/categorias', async (req, res) => {
     }));
 
     const totalSaidas = linhas
-      .filter(x => x.tipo === 'saida')
-      .reduce((a, x) => a + x.total, 0);
+      .filter(item => item.tipo === 'saida')
+      .reduce(
+        (soma, item) => soma + item.total,
+        0
+      );
 
     const totalEntradas = linhas
-      .filter(x => x.tipo === 'entrada')
-      .reduce((a, x) => a + x.total, 0);
+      .filter(item => item.tipo === 'entrada')
+      .reduce(
+        (soma, item) => soma + item.total,
+        0
+      );
 
     const adicionarPercentual = (itens, total) =>
-      itens.map(x => ({
-        id: x.id,
-        nome: x.nome,
-        total: x.total,
+      itens.map(item => ({
+        id: item.id,
+        nome: item.nome,
+        total: item.total,
         percentual: total > 0
-          ? Number((100 * x.total / total).toFixed(2))
+          ? Number(
+              (100 * item.total / total).toFixed(2)
+            )
           : 0,
-        periodoAnterior: x.periodoAnterior
+        periodoAnterior: item.periodoAnterior
       }));
 
-    return res.json({
+    return res.status(200).json({
       periodo: {
         inicio: periodo.inicio,
         fim: periodo.fim
@@ -158,28 +142,30 @@ router.get('/categorias', async (req, res) => {
         inicio: periodo.anteriorInicio,
         fim: periodo.anteriorFim
       },
-      totalSaidas: Number(totalSaidas.toFixed(2)),
-      totalEntradas: Number(totalEntradas.toFixed(2)),
+      totalSaidas: Number(
+        totalSaidas.toFixed(2)
+      ),
+      totalEntradas: Number(
+        totalEntradas.toFixed(2)
+      ),
       categorias: adicionarPercentual(
-        linhas.filter(x => x.tipo === 'saida'),
+        linhas.filter(item => item.tipo === 'saida'),
         totalSaidas
       ),
       entradas: adicionarPercentual(
-        linhas.filter(x => x.tipo === 'entrada'),
+        linhas.filter(item => item.tipo === 'entrada'),
         totalEntradas
       )
     });
 
   } catch (erro) {
-    console.error('Erro no relatório de categorias:', erro);
-
-    return res.status(500).json({
-      message: 'Erro interno ao consultar categorias.'
-    });
+    next(erro);
   }
 });
 
-router.get('/fontes-destinos', async (req, res) => {
+// RELATÓRIO POR FONTES E DESTINOS
+
+router.get('/fontes-destinos', async (req, res, next) => {
   const periodo = obterPeriodo(req);
 
   if (!periodo) {
@@ -189,37 +175,12 @@ router.get('/fontes-destinos', async (req, res) => {
   }
 
   try {
-    const consulta = await pool.query(
-      `SELECT
-         f.id,
-         f.nome,
-         f.tipo,
-         COALESCE(
-           SUM(l.valor) FILTER (
-             WHERE l.tipo = 'entrada'
-           ), 0
-         ) AS entradas,
-         COALESCE(
-           SUM(l.valor) FILTER (
-             WHERE l.tipo = 'saida'
-           ), 0
-         ) AS saidas
-       FROM fontes_destinos f
-       JOIN lancamentos l
-         ON l.fonte_destino_id = f.id
-         AND l.usuario_id = $1
-         AND l.data BETWEEN $2::date AND $3::date
-       WHERE f.usuario_id = $1
-       GROUP BY f.id, f.nome, f.tipo
-       ORDER BY f.nome ASC`,
-      [
-        req.usuario.id,
-        periodo.inicio,
-        periodo.fim
-      ]
+    const dados = await consultarFontesDestinosPorPeriodo(
+      req.usuario.id,
+      periodo
     );
 
-    const resultado = consulta.rows.map(item => {
+    const resultado = dados.map(item => {
       const entradas = Number(item.entradas);
       const saidas = Number(item.saidas);
 
@@ -235,14 +196,10 @@ router.get('/fontes-destinos', async (req, res) => {
       };
     });
 
-    return res.json(resultado);
+    return res.status(200).json(resultado);
 
   } catch (erro) {
-    console.error('Erro no relatório de fontes/destinos:', erro);
-
-    return res.status(500).json({
-      message: 'Erro interno ao consultar fontes e destinos.'
-    });
+    next(erro);
   }
 });
 

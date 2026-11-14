@@ -9,6 +9,10 @@ import fontesDestinosRoutes from './routes/fontes-destinos.routes.js';
 import lancamentosRoutes from './routes/lancamentos.routes.js';
 import relatoriosRoutes from './routes/relatorios.routes.js';
 import relatoriosFinanceirosRoutes from './routes/relatorios-financeiros.routes.js';
+import {
+  rotaNaoEncontrada,
+  tratarErros
+} from './middlewares/erros.middleware.js';
 
 const app = express();
 
@@ -35,6 +39,9 @@ app.get('/api/health', (req, res) => {
     mensagem: 'API funcionando com sucesso!'
   });
 });
+
+app.use(rotaNaoEncontrada);
+app.use(tratarErros);
 
 const PORT = process.env.PORT || 3000;
 

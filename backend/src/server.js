@@ -5,6 +5,7 @@ import 'dotenv/config';
 
 import authRoutes from './routes/auth.routes.js';
 import categoriasRoutes from './routes/categorias.routes.js';
+import fontesDestinosRoutes from './routes/fontes-destinos.routes.js';
 
 const app = express();
 
@@ -16,6 +17,8 @@ app.use(cors({
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categorias', categoriasRoutes);
+
+app.use('/api/fontes-destinos', fontesDestinosRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

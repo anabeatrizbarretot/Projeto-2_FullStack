@@ -73,4 +73,110 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+router.put('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const { nome, tipo } = req.body || {};
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({
+      message: 'ID da categoria inválido.'
+    });
+  }
+
+  if (
+    typeof nome !== 'string' ||
+    !nome.trim() ||
+    nome.trim().length > 60 ||
+    !['entrada', 'saida'].includes(tipo)
+  ) {
+    return res.status(400).json({
+      message: 'Informe um nome válido e o tipo entrada ou saida.'
+    });
+  }
+
+  try {
+    const usuarioId = req.usuario.id;
+
+    const resultado = await pool.query(
+      `UPDATE categorias
+       SET nome = $1, tipo = $2
+       WHERE id = $3 AND usuario_id = $4
+       RETURNING id, nome, tipo`,
+      [nome.trim(), tipo, id, usuarioId]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Categoria não encontrada.'
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Categoria atualizada com sucesso!',
+      categoria: resultado.rows[0]
+    });
+
+  } catch (erro) {
+    if (erro.code === '23505') {
+      return res.status(409).json({
+        message: 'Já existe uma categoria com esse nome e tipo.'
+      });
+    }
+
+    console.error('Erro ao atualizar categoria:', erro);
+
+    return res.status(500).json({
+      message: 'Erro interno ao atualizar categoria.'
+    });
+  }
+});
+
+
+router.delete('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({
+      message: 'ID da categoria inválido.'
+    });
+  }
+
+  try {
+    const usuarioId = req.usuario.id;
+
+    const resultado = await pool.query(
+      `DELETE FROM categorias
+       WHERE id = $1 AND usuario_id = $2
+       RETURNING id, nome, tipo`,
+      [id, usuarioId]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Categoria não encontrada.'
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Categoria excluída com sucesso!',
+      categoria: resultado.rows[0]
+    });
+
+  } catch (erro) {
+
+    if (erro.code === '23503') {
+      return res.status(409).json({
+        message: 'Não é possível excluir uma categoria que possui lançamentos.'
+      });
+    }
+
+    console.error('Erro ao excluir categoria:', erro);
+
+    return res.status(500).json({
+      message: 'Erro interno ao excluir categoria.'
+    });
+  }
+});
+
 export default router;

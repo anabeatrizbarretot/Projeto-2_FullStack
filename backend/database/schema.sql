@@ -42,7 +42,7 @@ CREATE TABLE lancamentos (
     descricao VARCHAR(120) NOT NULL,
     valor NUMERIC(12,2) NOT NULL CHECK (valor > 0),
     data DATE NOT NULL,
-    data_compra DATE,
+    data_compra DATE NOT NULL DEFAULT CURRENT_DATE,
     categoria_id INTEGER NOT NULL REFERENCES categorias(id),
     fonte_destino_id INTEGER NOT NULL REFERENCES fontes_destinos(id),
     parcela_atual SMALLINT NOT NULL DEFAULT 1,

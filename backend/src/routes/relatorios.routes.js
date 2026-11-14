@@ -47,6 +47,7 @@ router.get('/faturas', async (req, res) => {
              l.valor,
              l.parcela_atual AS "parcelaAtual",
              l.total_parcelas AS "totalParcelas",
+             l.grupo_parcelamento AS "grupoParcelamento",
              TO_CHAR(l.data, 'YYYY-MM-DD') AS data
            FROM lancamentos l
            JOIN fontes_destinos f
@@ -68,6 +69,22 @@ router.get('/faturas', async (req, res) => {
 
     const hoje = dataResultado.rows[0].hoje;
 
+      
+    const datasOriginais = new Map();
+
+    for (const lancamento of lancamentosResultado.rows) {
+    if (
+        lancamento.grupoParcelamento &&
+        lancamento.parcelaAtual === 1
+    ) {
+        datasOriginais.set(
+        lancamento.grupoParcelamento,
+        lancamento.data
+        );
+    }
+    }
+
+
     const resultado = cartoesResultado.rows.map(cartao => {
       const agrupadas = new Map();
       let utilizadoCentavos = 0;
@@ -77,10 +94,17 @@ router.get('/faturas', async (req, res) => {
           continue;
         }
 
-        const fatura = calcularFatura(
-          lancamento.data,
-          cartao
-        );
+        
+    const dataOriginal = lancamento.grupoParcelamento
+        ? datasOriginais.get(lancamento.grupoParcelamento)
+        : null;
+
+    const fatura = calcularFatura(
+        dataOriginal ?? lancamento.data,
+        cartao,
+        dataOriginal ? lancamento.parcelaAtual : 1
+    );
+
 
         if (fatura.vencimento < hoje) {
           continue;

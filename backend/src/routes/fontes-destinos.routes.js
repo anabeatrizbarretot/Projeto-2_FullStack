@@ -5,10 +5,8 @@ import autenticar from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// Todas as rotas exigem autenticação
 router.use(autenticar);
 
-// Cadastrar fonte ou destino
 router.post('/', async (req, res) => {
   const {
     nome,
@@ -18,7 +16,6 @@ router.post('/', async (req, res) => {
     limite
   } = req.body || {};
 
-  // Valida nome e tipo
   if (
     typeof nome !== 'string' ||
     !nome.trim() ||
@@ -32,7 +29,6 @@ router.post('/', async (req, res) => {
 
   const cartao = tipo === 'cartao_credito';
 
-  // Valida informações obrigatórias do cartão
   if (cartao) {
     const diaValido = (dia) =>
       Number.isInteger(dia) && dia >= 1 && dia <= 31;

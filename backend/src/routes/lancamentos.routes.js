@@ -153,6 +153,7 @@ const camposRetorno = `
   parcela_atual AS "parcelaAtual",
   total_parcelas AS "totalParcelas",
   grupo_parcelamento AS "grupoParcelamento"
+  TO_CHAR(data_compra, 'YYYY-MM-DD') AS "dataCompra"
 `;
 
 const camposListagem = `
@@ -164,6 +165,7 @@ const camposListagem = `
   l.parcela_atual AS "parcelaAtual",
   l.total_parcelas AS "totalParcelas",
   l.grupo_parcelamento AS "grupoParcelamento",
+  TO_CHAR(l.data_compra, 'YYYY-MM-DD') AS "dataCompra",
   json_build_object(
     'id', c.id,
     'nome', c.nome,

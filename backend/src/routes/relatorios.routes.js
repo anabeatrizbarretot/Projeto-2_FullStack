@@ -1,14 +1,44 @@
 
 import express from 'express';
-import pool from '../config/database.js';
 import autenticar from '../middlewares/auth.middleware.js';
+import { buscarDadosFaturas } from '../models/faturas.model.js';
 import { calcularFatura } from '../utils/calcularFatura.js';
 
 const router = express.Router();
 
 router.use(autenticar);
 
-router.get('/faturas', async (req, res) => {
+function formatarData(ano, mes, dia) {
+  const inicio = new Date(Date.UTC(ano, mes - 1, 1));
+  const a = inicio.getUTCFullYear();
+  const m = inicio.getUTCMonth() + 1;
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+
+  return `${a}-${String(m).padStart(2, '0')}-${String(Math.min(dia, ultimo)).padStart(2, '0')}`;
+}
+
+function detalhesMes(cartao, ano, mes) {
+  const vencimento = formatarData(
+    ano, mes, cartao.diaVencimento
+  );
+
+  const mesFechamento =
+    cartao.diaVencimento > cartao.diaFechamento
+      ? mes
+      : mes - 1;
+
+  const fechamento = formatarData(
+    ano, mesFechamento, cartao.diaFechamento
+  );
+
+  return {
+    referencia: vencimento.slice(0, 7),
+    fechamento,
+    vencimento
+  };
+}
+
+router.get('/faturas', async (req, res, next) => {
   const meses = req.query.meses === undefined
     ? 3
     : Number(req.query.meses);
@@ -19,138 +49,97 @@ router.get('/faturas', async (req, res) => {
     meses > 12
   ) {
     return res.status(400).json({
-      message: 'Informe de 1 a 12 faturas.'
+      message: 'Informe de 1 a 12 meses futuros.'
     });
   }
 
   try {
-    const usuarioId = req.usuario.id;
+    const { cartoes, lancamentos, hoje } =
+      await buscarDadosFaturas(req.usuario.id);
 
-    const [cartoesResultado, lancamentosResultado, dataResultado] =
-      await Promise.all([
-        pool.query(
-          `SELECT id, nome, limite,
-                  dia_fechamento AS "diaFechamento",
-                  dia_vencimento AS "diaVencimento"
-           FROM fontes_destinos
-           WHERE usuario_id = $1
-             AND tipo = 'cartao_credito'
-           ORDER BY nome`,
-          [usuarioId]
-        ),
+    const anoAtual = Number(hoje.slice(0, 4));
+    const mesAtual = Number(hoje.slice(5, 7));
 
-        pool.query(
-          `SELECT
-             l.id,
-             l.fonte_destino_id AS "cartaoId",
-             l.descricao,
-             l.valor,
-             l.parcela_atual AS "parcelaAtual",
-             l.total_parcelas AS "totalParcelas",
-             l.grupo_parcelamento AS "grupoParcelamento",
-             TO_CHAR(l.data, 'YYYY-MM-DD') AS data
-           FROM lancamentos l
-           JOIN fontes_destinos f
-             ON f.id = l.fonte_destino_id
-           WHERE l.usuario_id = $1
-             AND f.usuario_id = $1
-             AND f.tipo = 'cartao_credito'
-             AND l.tipo = 'saida'
-           ORDER BY l.data, l.id`,
-          [usuarioId]
-        ),
+    const resposta = cartoes.map(cartao => {
+      const primeiroVencimento = detalhesMes(
+        cartao, anoAtual, mesAtual
+      ).vencimento;
 
-        pool.query(
-          `SELECT TO_CHAR(
-             CURRENT_DATE, 'YYYY-MM-DD'
-           ) AS hoje`
-        )
-      ]);
+      const deslocamento =
+        primeiroVencimento < hoje ? 1 : 0;
 
-    const hoje = dataResultado.rows[0].hoje;
+      const faturas = [];
+      const porReferencia = new Map();
 
-      
-    const datasOriginais = new Map();
-
-    for (const lancamento of lancamentosResultado.rows) {
-    if (
-        lancamento.grupoParcelamento &&
-        lancamento.parcelaAtual === 1
-    ) {
-        datasOriginais.set(
-        lancamento.grupoParcelamento,
-        lancamento.data
+      for (let i = 0; i <= meses; i++) {
+        const inicio = new Date(
+          Date.UTC(
+            anoAtual,
+            mesAtual - 1 + deslocamento + i,
+            1
+          )
         );
-    }
-    }
 
+        const fatura = {
+          ...detalhesMes(
+            cartao,
+            inicio.getUTCFullYear(),
+            inicio.getUTCMonth() + 1
+          ),
+          totalCentavos: 0,
+          lancamentos: []
+        };
 
-    const resultado = cartoesResultado.rows.map(cartao => {
-      const agrupadas = new Map();
+        faturas.push(fatura);
+        porReferencia.set(fatura.referencia, fatura);
+      }
+
       let utilizadoCentavos = 0;
 
-      for (const lancamento of lancamentosResultado.rows) {
+      for (const lancamento of lancamentos) {
         if (lancamento.cartaoId !== cartao.id) {
           continue;
         }
 
-        
-    const dataOriginal = lancamento.grupoParcelamento
-        ? datasOriginais.get(lancamento.grupoParcelamento)
-        : null;
+        const compra =
+          lancamento.dataCompra || lancamento.data;
 
-    const fatura = calcularFatura(
-        dataOriginal ?? lancamento.data,
-        cartao,
-        dataOriginal ? lancamento.parcelaAtual : 1
-    );
+        const parcela = lancamento.dataCompra
+          ? lancamento.parcelaAtual
+          : 1;
 
-
-        if (fatura.vencimento < hoje) {
-          continue;
-        }
+        const fatura = calcularFatura(
+          compra,
+          cartao,
+          parcela
+        );
 
         const centavos = Math.round(
           Number(lancamento.valor) * 100
         );
 
-        utilizadoCentavos += centavos;
-
-        if (!agrupadas.has(fatura.referencia)) {
-          agrupadas.set(fatura.referencia, {
-            referencia: fatura.referencia,
-            fechamento: fatura.fechamento,
-            vencimento: fatura.vencimento,
-            totalCentavos: 0,
-            lancamentos: []
-          });
+        if (fatura.vencimento >= hoje) {
+          utilizadoCentavos += centavos;
         }
 
-        const grupo = agrupadas.get(fatura.referencia);
+        const destino = porReferencia.get(
+          fatura.referencia
+        );
 
-        grupo.totalCentavos += centavos;
+        if (!destino) {
+          continue;
+        }
 
-        grupo.lancamentos.push({
+        destino.totalCentavos += centavos;
+
+        destino.lancamentos.push({
           id: lancamento.id,
           descricao: lancamento.descricao,
-          valor: Number(lancamento.valor),
+          valor: centavos / 100,
           parcelaAtual: lancamento.parcelaAtual,
           totalParcelas: lancamento.totalParcelas
         });
       }
-
-      const faturas = Array.from(agrupadas.values())
-        .sort((a, b) =>
-          a.vencimento.localeCompare(b.vencimento)
-        )
-        .slice(0, meses)
-        .map(fatura => ({
-          referencia: fatura.referencia,
-          fechamento: fatura.fechamento,
-          vencimento: fatura.vencimento,
-          total: fatura.totalCentavos / 100,
-          lancamentos: fatura.lancamentos
-        }));
 
       const limite = Number(cartao.limite);
       const limiteUtilizado = utilizadoCentavos / 100;
@@ -163,18 +152,19 @@ router.get('/faturas', async (req, res) => {
         limiteDisponivel: Number(
           (limite - limiteUtilizado).toFixed(2)
         ),
-        faturas
+        faturas: faturas.map(
+          ({ totalCentavos, ...fatura }) => ({
+            ...fatura,
+            total: totalCentavos / 100
+          })
+        )
       };
     });
 
-    return res.status(200).json(resultado);
+    return res.status(200).json(resposta);
 
   } catch (erro) {
-    console.error('Erro ao consultar faturas:', erro);
-
-    return res.status(500).json({
-      message: 'Erro interno ao consultar faturas.'
-    });
+    next(erro);
   }
 });
 

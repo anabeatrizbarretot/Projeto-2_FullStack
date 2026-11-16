@@ -32,7 +32,6 @@ function erroValidacao() {
   };
 }
 
-
 router.post('/', async (req, res, next) => {
   const { nome, tipo } = req.body || {};
 
@@ -63,6 +62,7 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+
 router.get('/', async (req, res, next) => {
   try {
     const categorias = await listarCategorias(
@@ -75,6 +75,7 @@ router.get('/', async (req, res, next) => {
     next(erro);
   }
 });
+
 
 router.put('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
@@ -97,6 +98,12 @@ router.put('/:id', async (req, res, next) => {
       nome.trim(),
       tipo
     );
+
+    if (categoria?.alteracaoTipoBloqueada === true) {
+      return res.status(409).json({
+        erro: 'Não é possível alterar o tipo de uma categoria que possui lançamentos vinculados.'
+      });
+    }
 
     if (!categoria) {
       return res.status(404).json({

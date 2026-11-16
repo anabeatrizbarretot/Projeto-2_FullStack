@@ -24,6 +24,7 @@ export async function listarCategorias(usuarioId) {
   return resultado.rows;
 }
 
+
 export async function atualizarCategoria(
   id,
   usuarioId,
@@ -31,14 +32,42 @@ export async function atualizarCategoria(
   tipo
 ) {
   const resultado = await pool.query(
-    `UPDATE categorias
-     SET nome = $1, tipo = $2
-     WHERE id = $3 AND usuario_id = $4
-     RETURNING id, nome, tipo`,
+    `UPDATE categorias AS c
+     SET nome = $1,
+         tipo = $2
+     WHERE c.id = $3
+       AND c.usuario_id = $4
+       AND (
+         c.tipo = $2
+         OR NOT EXISTS (
+           SELECT 1
+           FROM lancamentos AS l
+           WHERE l.categoria_id = c.id
+             AND l.usuario_id = $4
+         )
+       )
+     RETURNING c.id, c.nome, c.tipo`,
     [nome, tipo, id, usuarioId]
   );
 
-  return resultado.rows[0];
+  if (resultado.rows.length > 0) {
+    return resultado.rows[0];
+  }
+
+  const existe = await pool.query(
+    `SELECT id
+     FROM categorias
+     WHERE id = $1 AND usuario_id = $2`,
+    [id, usuarioId]
+  );
+
+  if (existe.rows.length === 0) {
+    return null;
+  }
+
+  return {
+    alteracaoTipoBloqueada: true
+  };
 }
 
 export async function excluirCategoria(id, usuarioId) {

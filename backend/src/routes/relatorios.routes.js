@@ -9,34 +9,42 @@ const router = express.Router();
 router.use(autenticar);
 
 function formatarData(ano, mes, dia) {
-  const inicio = new Date(Date.UTC(ano, mes - 1, 1));
-
-  const a = inicio.getUTCFullYear();
-  const m = inicio.getUTCMonth() + 1;
-
-  const ultimo = new Date(
-    Date.UTC(a, m, 0)
-  ).getUTCDate();
-
-  return `${a}-${String(m).padStart(2, '0')}-${String(Math.min(dia, ultimo)).padStart(2, '0')}`;
-}
-
-function detalhesMes(cartao, ano, mes) {
-  const vencimento = formatarData(
-    ano,
-    mes,
-    cartao.diaVencimento
+  const primeiro = new Date(
+    Date.UTC(ano, mes - 1, 1)
   );
 
-  const mesFechamento =
-    cartao.diaVencimento > cartao.diaFechamento
-      ? mes
-      : mes - 1;
+  const anoAjustado = primeiro.getUTCFullYear();
+  const mesAjustado = primeiro.getUTCMonth() + 1;
 
+  const ultimoDia = new Date(
+    Date.UTC(anoAjustado, mesAjustado, 0)
+  ).getUTCDate();
+
+  const diaAjustado = Math.min(dia, ultimoDia);
+
+  return (
+    `${String(anoAjustado).padStart(4, '0')}-` +
+    `${String(mesAjustado).padStart(2, '0')}-` +
+    `${String(diaAjustado).padStart(2, '0')}`
+  );
+}
+
+function detalhesFechamento(cartao, ano, mes) {
   const fechamento = formatarData(
     ano,
-    mesFechamento,
+    mes,
     cartao.diaFechamento
+  );
+
+  const mesVencimento =
+    cartao.diaVencimento > cartao.diaFechamento
+      ? mes
+      : mes + 1;
+
+  const vencimento = formatarData(
+    ano,
+    mesVencimento,
+    cartao.diaVencimento
   );
 
   return {
@@ -65,27 +73,32 @@ router.get('/faturas', async (req, res, next) => {
   }
 
   try {
-    const { cartoes, lancamentos, hoje } =
-      await buscarDadosFaturas(req.usuario.id);
+
+    const {
+      cartoes,
+      lancamentos,
+      hoje
+    } = await buscarDadosFaturas(req.usuario.id);
 
     const anoAtual = Number(hoje.slice(0, 4));
     const mesAtual = Number(hoje.slice(5, 7));
 
     const resposta = cartoes.map(cartao => {
-      const primeiroVencimento = detalhesMes(
-        cartao,
+
+      const fechamentoDesteMes = formatarData(
         anoAtual,
-        mesAtual
-      ).vencimento;
+        mesAtual,
+        cartao.diaFechamento
+      );
 
       const deslocamento =
-        primeiroVencimento < hoje ? 1 : 0;
+        fechamentoDesteMes <= hoje ? 1 : 0;
 
       const faturas = [];
       const porReferencia = new Map();
 
       for (let i = 0; i <= meses; i++) {
-        const inicio = new Date(
+        const dataMes = new Date(
           Date.UTC(
             anoAtual,
             mesAtual - 1 + deslocamento + i,
@@ -94,10 +107,10 @@ router.get('/faturas', async (req, res, next) => {
         );
 
         const fatura = {
-          ...detalhesMes(
+          ...detalhesFechamento(
             cartao,
-            inicio.getUTCFullYear(),
-            inicio.getUTCMonth() + 1
+            dataMes.getUTCFullYear(),
+            dataMes.getUTCMonth() + 1
           ),
           totalCentavos: 0,
           lancamentos: []
@@ -118,38 +131,38 @@ router.get('/faturas', async (req, res, next) => {
           continue;
         }
 
-        const compra =
+        const dataOriginal =
           lancamento.dataCompra || lancamento.data;
 
-        const parcela = lancamento.dataCompra
+        const numeroParcela = lancamento.dataCompra
           ? lancamento.parcelaAtual
           : 1;
 
-        const fatura = calcularFatura(
-          compra,
+        const faturaCalculada = calcularFatura(
+          dataOriginal,
           cartao,
-          parcela
+          numeroParcela
         );
 
         const centavos = Math.round(
           Number(lancamento.valor) * 100
         );
 
-        if (fatura.vencimento >= hoje) {
+        if (faturaCalculada.vencimento >= hoje) {
           utilizadoCentavos += centavos;
         }
 
-        const destino = porReferencia.get(
-          fatura.referencia
+        const faturaDestino = porReferencia.get(
+          faturaCalculada.referencia
         );
 
-        if (!destino) {
+        if (!faturaDestino) {
           continue;
         }
 
-        destino.totalCentavos += centavos;
+        faturaDestino.totalCentavos += centavos;
 
-        destino.lancamentos.push({
+        faturaDestino.lancamentos.push({
           id: lancamento.id,
           descricao: lancamento.descricao,
           valor: centavos / 100,
@@ -163,14 +176,16 @@ router.get('/faturas', async (req, res, next) => {
       const limiteUtilizado =
         utilizadoCentavos / 100;
 
+      const limiteDisponivel = Number(
+        (limite - limiteUtilizado).toFixed(2)
+      );
+
       return {
         cartaoId: cartao.id,
         nome: cartao.nome,
         limite,
         limiteUtilizado,
-        limiteDisponivel: Number(
-          (limite - limiteUtilizado).toFixed(2)
-        ),
+        limiteDisponivel,
         faturas: faturas.map(
           ({ totalCentavos, ...fatura }) => ({
             ...fatura,

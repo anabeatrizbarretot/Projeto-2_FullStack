@@ -2,7 +2,7 @@
 import express from 'express';
 import autenticar from '../middlewares/auth.middleware.js';
 import { buscarDadosFaturas } from '../models/faturas.model.js';
-import { calcularFatura } from '../utils/calcularFatura.js';
+import { calcularFatura } from '../models/calcularFatura.js';
 
 const router = express.Router();
 

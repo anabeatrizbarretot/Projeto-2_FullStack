@@ -10,16 +10,22 @@ router.use(autenticar);
 
 function formatarData(ano, mes, dia) {
   const inicio = new Date(Date.UTC(ano, mes - 1, 1));
+
   const a = inicio.getUTCFullYear();
   const m = inicio.getUTCMonth() + 1;
-  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+
+  const ultimo = new Date(
+    Date.UTC(a, m, 0)
+  ).getUTCDate();
 
   return `${a}-${String(m).padStart(2, '0')}-${String(Math.min(dia, ultimo)).padStart(2, '0')}`;
 }
 
 function detalhesMes(cartao, ano, mes) {
   const vencimento = formatarData(
-    ano, mes, cartao.diaVencimento
+    ano,
+    mes,
+    cartao.diaVencimento
   );
 
   const mesFechamento =
@@ -28,7 +34,9 @@ function detalhesMes(cartao, ano, mes) {
       : mes - 1;
 
   const fechamento = formatarData(
-    ano, mesFechamento, cartao.diaFechamento
+    ano,
+    mesFechamento,
+    cartao.diaFechamento
   );
 
   return {
@@ -49,7 +57,10 @@ router.get('/faturas', async (req, res, next) => {
     meses > 12
   ) {
     return res.status(400).json({
-      message: 'Informe de 1 a 12 meses futuros.'
+      erro: 'Informe de 1 a 12 meses futuros.',
+      campos: {
+        meses: 'Informe um número inteiro entre 1 e 12.'
+      }
     });
   }
 
@@ -62,7 +73,9 @@ router.get('/faturas', async (req, res, next) => {
 
     const resposta = cartoes.map(cartao => {
       const primeiroVencimento = detalhesMes(
-        cartao, anoAtual, mesAtual
+        cartao,
+        anoAtual,
+        mesAtual
       ).vencimento;
 
       const deslocamento =
@@ -91,7 +104,11 @@ router.get('/faturas', async (req, res, next) => {
         };
 
         faturas.push(fatura);
-        porReferencia.set(fatura.referencia, fatura);
+
+        porReferencia.set(
+          fatura.referencia,
+          fatura
+        );
       }
 
       let utilizadoCentavos = 0;
@@ -142,7 +159,9 @@ router.get('/faturas', async (req, res, next) => {
       }
 
       const limite = Number(cartao.limite);
-      const limiteUtilizado = utilizadoCentavos / 100;
+
+      const limiteUtilizado =
+        utilizadoCentavos / 100;
 
       return {
         cartaoId: cartao.id,

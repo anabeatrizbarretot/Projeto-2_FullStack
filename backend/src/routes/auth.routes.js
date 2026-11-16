@@ -21,7 +21,7 @@ const limitarLogin = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: {
-    message: 'Muitas tentativas de login. Tente novamente em 15 minutos.'
+    erro: 'Muitas tentativas de login. Tente novamente em 15 minutos.'
   }
 });
 
@@ -43,6 +43,7 @@ function validarCPF(cpf) {
     }
 
     const resto = (soma * 10) % 11;
+
     return resto === 10 ? 0 : resto;
   }
 
@@ -51,8 +52,6 @@ function validarCPF(cpf) {
     calcularDigito(10) === Number(numeros[10])
   );
 }
-
-// CADASTRO
 
 router.post('/cadastro', async (req, res, next) => {
   const {
@@ -76,7 +75,7 @@ router.post('/cadastro', async (req, res, next) => {
     !confirmacao
   ) {
     return res.status(400).json({
-      message: 'Preencha todos os campos obrigatórios.'
+      erro: 'Preencha todos os campos obrigatórios.'
     });
   }
 
@@ -86,7 +85,7 @@ router.post('/cadastro', async (req, res, next) => {
 
   if (nomeLimpo.length > 120) {
     return res.status(400).json({
-      message: 'O nome deve ter até 120 caracteres.'
+      erro: 'O nome deve ter até 120 caracteres.'
     });
   }
 
@@ -95,7 +94,7 @@ router.post('/cadastro', async (req, res, next) => {
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpo)
   ) {
     return res.status(400).json({
-      message: 'E-mail inválido.',
+      erro: 'E-mail inválido.',
       campos: {
         email: 'Informe um e-mail válido.'
       }
@@ -104,7 +103,7 @@ router.post('/cadastro', async (req, res, next) => {
 
   if (!validarCPF(cpfLimpo)) {
     return res.status(400).json({
-      message: 'CPF inválido.',
+      erro: 'CPF inválido.',
       campos: {
         cpf: 'Informe um CPF válido.'
       }
@@ -118,13 +117,13 @@ router.post('/cadastro', async (req, res, next) => {
     Buffer.byteLength(senha, 'utf8') > 72
   ) {
     return res.status(400).json({
-      message: 'A senha deve ter pelo menos 8 caracteres, letras e números, e até 72 bytes.'
+      erro: 'A senha deve ter pelo menos 8 caracteres, letras e números, e até 72 bytes.'
     });
   }
 
   if (senha !== confirmacao) {
     return res.status(400).json({
-      message: 'As senhas não coincidem.',
+      erro: 'As senhas não coincidem.',
       campos: {
         confirmacao: 'As senhas não são iguais.'
       }
@@ -157,7 +156,7 @@ router.post('/cadastro', async (req, res, next) => {
         : 'Este e-mail já está cadastrado.';
 
       return res.status(409).json({
-        message: mensagem,
+        erro: mensagem,
         campos: {
           [campo]: mensagem
         }
@@ -167,8 +166,6 @@ router.post('/cadastro', async (req, res, next) => {
     next(erro);
   }
 });
-
-// LOGIN
 
 router.post('/login', limitarLogin, async (req, res, next) => {
   const { email, senha } = req.body || {};
@@ -180,7 +177,7 @@ router.post('/login', limitarLogin, async (req, res, next) => {
     !senha
   ) {
     return res.status(400).json({
-      message: 'Informe o e-mail e a senha.'
+      erro: 'Informe o e-mail e a senha.'
     });
   }
 
@@ -191,7 +188,7 @@ router.post('/login', limitarLogin, async (req, res, next) => {
 
     if (!usuario) {
       return res.status(401).json({
-        message: 'E-mail ou senha incorretos.'
+        erro: 'E-mail ou senha incorretos.'
       });
     }
 
@@ -202,7 +199,7 @@ router.post('/login', limitarLogin, async (req, res, next) => {
 
     if (!senhaCorreta) {
       return res.status(401).json({
-        message: 'E-mail ou senha incorretos.'
+        erro: 'E-mail ou senha incorretos.'
       });
     }
 
@@ -234,8 +231,6 @@ router.post('/login', limitarLogin, async (req, res, next) => {
   }
 });
 
-// DADOS DO USUÁRIO AUTENTICADO
-
 router.get('/me', autenticar, async (req, res, next) => {
   try {
     const usuario = await buscarUsuarioPorId(
@@ -244,7 +239,7 @@ router.get('/me', autenticar, async (req, res, next) => {
 
     if (!usuario) {
       return res.status(404).json({
-        message: 'Usuário não encontrado.'
+        erro: 'Usuário não encontrado.'
       });
     }
 
@@ -254,8 +249,6 @@ router.get('/me', autenticar, async (req, res, next) => {
     next(erro);
   }
 });
-
-// VERIFICAÇÃO DE ACESSO
 
 router.get('/perfil', autenticar, (req, res) => {
   return res.status(200).json({

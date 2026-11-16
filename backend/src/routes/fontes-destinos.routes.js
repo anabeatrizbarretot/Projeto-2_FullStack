@@ -29,7 +29,11 @@ function validarDados(corpo) {
     !['renda', 'conta', 'cartao_credito'].includes(tipo)
   ) {
     return {
-      erro: 'Informe um nome e um tipo válido.'
+      erro: 'Informe um nome e um tipo válido.',
+      campos: {
+        nome: 'O nome deve conter de 1 a 60 caracteres.',
+        tipo: 'O tipo deve ser renda, conta ou cartao_credito.'
+      }
     };
   }
 
@@ -56,7 +60,12 @@ function validarDados(corpo) {
       !limiteValido
     ) {
       return {
-        erro: 'Informe dias de fechamento e vencimento de 1 a 31 e um limite válido.'
+        erro: 'Informe dias de fechamento e vencimento de 1 a 31 e um limite válido.',
+        campos: {
+          diaFechamento: 'Informe um dia de 1 a 31.',
+          diaVencimento: 'Informe um dia de 1 a 31.',
+          limite: 'Informe um limite positivo válido.'
+        }
       };
     }
   }
@@ -86,7 +95,8 @@ router.post('/', async (req, res, next) => {
 
   if (validacao.erro) {
     return res.status(400).json({
-      message: validacao.erro
+      erro: validacao.erro,
+      campos: validacao.campos
     });
   }
 
@@ -103,7 +113,10 @@ router.post('/', async (req, res, next) => {
   } catch (erro) {
     if (erro.code === '23505') {
       return res.status(409).json({
-        message: 'Já existe uma fonte ou destino com esse nome.'
+        erro: 'Já existe uma fonte ou destino com esse nome.',
+        campos: {
+          nome: 'Escolha outro nome para essa fonte ou destino.'
+        }
       });
     }
 
@@ -131,7 +144,7 @@ router.put('/:id', async (req, res, next) => {
 
   if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json({
-      message: 'ID inválido.'
+      erro: 'ID inválido.'
     });
   }
 
@@ -139,7 +152,8 @@ router.put('/:id', async (req, res, next) => {
 
   if (validacao.erro) {
     return res.status(400).json({
-      message: validacao.erro
+      erro: validacao.erro,
+      campos: validacao.campos
     });
   }
 
@@ -152,7 +166,7 @@ router.put('/:id', async (req, res, next) => {
 
     if (!fonte) {
       return res.status(404).json({
-        message: 'Fonte ou destino não encontrado.'
+        erro: 'Fonte ou destino não encontrado.'
       });
     }
 
@@ -164,7 +178,10 @@ router.put('/:id', async (req, res, next) => {
   } catch (erro) {
     if (erro.code === '23505') {
       return res.status(409).json({
-        message: 'Já existe uma fonte ou destino com esse nome.'
+        erro: 'Já existe uma fonte ou destino com esse nome.',
+        campos: {
+          nome: 'Escolha outro nome para essa fonte ou destino.'
+        }
       });
     }
 
@@ -177,7 +194,7 @@ router.delete('/:id', async (req, res, next) => {
 
   if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json({
-      message: 'ID inválido.'
+      erro: 'ID inválido.'
     });
   }
 
@@ -189,7 +206,7 @@ router.delete('/:id', async (req, res, next) => {
 
     if (!fonte) {
       return res.status(404).json({
-        message: 'Fonte ou destino não encontrado.'
+        erro: 'Fonte ou destino não encontrado.'
       });
     }
 
@@ -201,7 +218,7 @@ router.delete('/:id', async (req, res, next) => {
   } catch (erro) {
     if (erro.code === '23503') {
       return res.status(409).json({
-        message: 'Não é possível excluir uma conta ou fonte que possui lançamentos financeiros.'
+        erro: 'Não é possível excluir uma conta ou fonte que possui lançamentos financeiros.'
       });
     }
 

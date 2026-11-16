@@ -2,12 +2,14 @@
 import jwt from 'jsonwebtoken';
 
 function autenticar(req, res, next) {
-
   const autorizacao = req.headers.authorization;
 
-  if (!autorizacao || !autorizacao.startsWith('Bearer ')) {
+  if (
+    !autorizacao ||
+    !autorizacao.startsWith('Bearer ')
+  ) {
     return res.status(401).json({
-      message: 'Token de autenticação não informado.'
+      erro: 'Token de autenticação não informado.'
     });
   }
 
@@ -20,9 +22,12 @@ function autenticar(req, res, next) {
       { algorithms: ['HS256'] }
     );
 
-    if (!Number.isSafeInteger(dados.id) || dados.id <= 0) {
+    if (
+      !Number.isSafeInteger(dados.id) ||
+      dados.id <= 0
+    ) {
       return res.status(401).json({
-        message: 'Token inválido.'
+        erro: 'Token inválido.'
       });
     }
 
@@ -34,7 +39,7 @@ function autenticar(req, res, next) {
 
   } catch (erro) {
     return res.status(401).json({
-      message: 'Token inválido ou expirado.'
+      erro: 'Token inválido ou expirado.'
     });
   }
 }

@@ -81,14 +81,12 @@ function obterPeriodo(req) {
   };
 }
 
-// RELATÓRIO POR CATEGORIAS
-
 router.get('/categorias', async (req, res, next) => {
   const periodo = obterPeriodo(req);
 
   if (!periodo) {
     return res.status(400).json({
-      message: 'Informe inicio e fim válidos (AAAA-MM-DD).'
+      erro: 'Informe inicio e fim válidos (AAAA-MM-DD).'
     });
   }
 
@@ -163,14 +161,12 @@ router.get('/categorias', async (req, res, next) => {
   }
 });
 
-// RELATÓRIO POR FONTES E DESTINOS
-
 router.get('/fontes-destinos', async (req, res, next) => {
   const periodo = obterPeriodo(req);
 
   if (!periodo) {
     return res.status(400).json({
-      message: 'Informe inicio e fim válidos (AAAA-MM-DD).'
+      erro: 'Informe inicio e fim válidos (AAAA-MM-DD).'
     });
   }
 

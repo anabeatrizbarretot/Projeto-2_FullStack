@@ -22,13 +22,22 @@ function dadosValidos(nome, tipo) {
   );
 }
 
+function erroValidacao() {
+  return {
+    erro: 'Informe um nome válido e o tipo entrada ou saida.',
+    campos: {
+      nome: 'O nome deve conter de 1 a 60 caracteres.',
+      tipo: 'O tipo deve ser entrada ou saida.'
+    }
+  };
+}
+
+
 router.post('/', async (req, res, next) => {
   const { nome, tipo } = req.body || {};
 
   if (!dadosValidos(nome, tipo)) {
-    return res.status(400).json({
-      message: 'Informe um nome válido e o tipo entrada ou saida.'
-    });
+    return res.status(400).json(erroValidacao());
   }
 
   try {
@@ -43,7 +52,10 @@ router.post('/', async (req, res, next) => {
   } catch (erro) {
     if (erro.code === '23505') {
       return res.status(409).json({
-        message: 'Essa categoria já está cadastrada.'
+        erro: 'Essa categoria já está cadastrada.',
+        campos: {
+          nome: 'Já existe uma categoria com esse nome e tipo.'
+        }
       });
     }
 
@@ -53,7 +65,9 @@ router.post('/', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    const categorias = await listarCategorias(req.usuario.id);
+    const categorias = await listarCategorias(
+      req.usuario.id
+    );
 
     return res.status(200).json(categorias);
 
@@ -68,14 +82,12 @@ router.put('/:id', async (req, res, next) => {
 
   if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json({
-      message: 'ID da categoria inválido.'
+      erro: 'ID da categoria inválido.'
     });
   }
 
   if (!dadosValidos(nome, tipo)) {
-    return res.status(400).json({
-      message: 'Informe um nome válido e o tipo entrada ou saida.'
-    });
+    return res.status(400).json(erroValidacao());
   }
 
   try {
@@ -88,7 +100,7 @@ router.put('/:id', async (req, res, next) => {
 
     if (!categoria) {
       return res.status(404).json({
-        message: 'Categoria não encontrada.'
+        erro: 'Categoria não encontrada.'
       });
     }
 
@@ -100,7 +112,10 @@ router.put('/:id', async (req, res, next) => {
   } catch (erro) {
     if (erro.code === '23505') {
       return res.status(409).json({
-        message: 'Já existe uma categoria com esse nome e tipo.'
+        erro: 'Já existe uma categoria com esse nome e tipo.',
+        campos: {
+          nome: 'Escolha outro nome para essa categoria.'
+        }
       });
     }
 
@@ -113,7 +128,7 @@ router.delete('/:id', async (req, res, next) => {
 
   if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json({
-      message: 'ID da categoria inválido.'
+      erro: 'ID da categoria inválido.'
     });
   }
 
@@ -125,7 +140,7 @@ router.delete('/:id', async (req, res, next) => {
 
     if (!categoria) {
       return res.status(404).json({
-        message: 'Categoria não encontrada.'
+        erro: 'Categoria não encontrada.'
       });
     }
 
@@ -137,7 +152,7 @@ router.delete('/:id', async (req, res, next) => {
   } catch (erro) {
     if (erro.code === '23503') {
       return res.status(409).json({
-        message: 'Não é possível excluir uma categoria que possui lançamentos.'
+        erro: 'Não é possível excluir uma categoria que possui lançamentos.'
       });
     }
 

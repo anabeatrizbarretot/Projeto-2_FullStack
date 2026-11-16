@@ -1,6 +1,3 @@
-// Ponto único de comunicação com a API.
-// - adiciona o cabeçalho Authorization automaticamente
-// - ao receber 401 (token ausente/expirado), executa o logout e volta ao login
 import axios from 'axios';
 import { adaptadorMock } from './mock';
 
@@ -35,13 +32,21 @@ api.interceptors.response.use(
   }
 );
 
-// Converte qualquer erro no padrão { mensagem, campos } usado pelas telas.
+
 export function lerErro(erro) {
   if (!erro.response) {
-    return { mensagem: 'Não foi possível conectar ao servidor. Verifique se o back-end está rodando.', campos: {} };
+    return {
+      mensagem: 'Não foi possível conectar ao servidor. Verifique se o back-end está rodando.',
+      campos: {}
+    };
   }
+
   const dados = erro.response.data;
-  return { mensagem: dados?.erro ?? 'Ocorreu um erro inesperado.', campos: dados?.campos ?? {} };
+
+  return {
+    mensagem: dados?.message ?? dados?.erro ?? 'Ocorreu um erro inesperado.',
+    campos: dados?.campos ?? {}
+  };
 }
 
 export default api;

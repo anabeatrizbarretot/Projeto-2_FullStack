@@ -40,7 +40,7 @@ export default function Cadastro() {
 
     setEnviando(true);
     try {
-      await cadastrar({ nome: form.nome.trim(), email: form.email.trim().toLowerCase(), cpf: soDigitos(form.cpf), senha: form.senha });
+      await cadastrar({ nome: form.nome.trim(), email: form.email.trim().toLowerCase(), cpf: soDigitos(form.cpf), senha: form.senha, confirmacao: form.confirmacao });
       navegar('/login', { replace: true, state: { mensagem: 'Conta criada! Entre com seu e-mail e senha.' } });
     } catch (err) {
       const { mensagem, campos } = lerErro(err);
